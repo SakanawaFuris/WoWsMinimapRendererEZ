@@ -1,3 +1,6 @@
+// Socket.IO接続
+const socket = io();
+
 // DOM要素の取得
 const uploadForm = document.getElementById('uploadForm');
 const replayFile = document.getElementById('replayFile');
@@ -22,6 +25,19 @@ replayFile.addEventListener('change', (e) => {
     }
 });
 
+// Socket.IOイベントハンドラ
+socket.on('progress', (data) => {
+    updateProgress(data.percent, data.message);
+});
+
+socket.on('complete', (data) => {
+    showResult(data.video_url);
+});
+
+socket.on('error', (data) => {
+    showError(data.error);
+});
+
 // フォーム送信時の処理
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -33,7 +49,7 @@ uploadForm.addEventListener('submit', async (e) => {
     progressSection.classList.remove('hidden');
 
     // 進捗を0%に
-    updateProgress(0);
+    updateProgress(0, '処理を開始しています...');
 
     try {
         const response = await fetch('/upload', {
@@ -45,10 +61,8 @@ uploadForm.addEventListener('submit', async (e) => {
 
         if (data.error) {
             showError(data.error);
-        } else {
-            // 成功時の処理
-            showResult(data.video_url);
         }
+        // 成功時はSocket.IOイベントで結果を受け取る
     } catch (error) {
         showError('処理中にエラーが発生しました: ' + error.message);
     }
@@ -72,9 +86,13 @@ function hideAllSections() {
     errorSection.classList.add('hidden');
 }
 
-function updateProgress(percent) {
+function updateProgress(percent, message) {
     progressFill.style.width = percent + '%';
-    progressText.textContent = Math.round(percent) + '%';
+    if (message) {
+        progressText.textContent = `${Math.round(percent)}% - ${message}`;
+    } else {
+        progressText.textContent = Math.round(percent) + '%';
+    }
 }
 
 function showResult(videoUrl) {
@@ -92,9 +110,3 @@ function showError(message) {
     errorSection.classList.remove('hidden');
     errorMessage.textContent = message;
 }
-
-// TODO: Socket.IOで進捗をリアルタイム受信
-// const socket = io();
-// socket.on('progress', (data) => {
-//     updateProgress(data.percent);
-// });

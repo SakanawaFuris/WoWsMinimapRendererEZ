@@ -3,7 +3,9 @@ from flask_socketio import SocketIO, emit
 import os
 import tempfile
 import webbrowser
-from threading import Timer
+from threading import Timer, Thread
+import time
+import subprocess
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -17,6 +19,72 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 def index():
     """メイン画面を表示"""
     return render_template('index.html')
+
+def process_video(temp_replay_path, video_path, video_filename):
+    """動画生成処理を別スレッドで実行"""
+    try:
+        # 進捗を送信（開始）
+        socketio.emit('progress', {'percent': 10, 'message': 'リプレイファイルを解析中...'})
+        time.sleep(0.5)
+
+        # minimap_rendererを呼び出す
+        socketio.emit('progress', {'percent': 30, 'message': '動画を生成中...'})
+
+        # Popenで実行し、進捗をシミュレート
+        process = subprocess.Popen(
+            ['python', '-m', 'render', '--replay', temp_replay_path, '--output', video_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        # プロセスが実行中の間、進捗を更新
+        start_time = time.time()
+        current_progress = 30
+
+        while process.poll() is None:
+            elapsed = time.time() - start_time
+            # 時間経過に応じて進捗を増加（最大90%まで）
+            if elapsed < 60:  # 1分以内
+                current_progress = min(30 + int(elapsed), 60)
+            elif elapsed < 120:  # 2分以内
+                current_progress = min(60 + int((elapsed - 60) / 2), 80)
+            else:  # 2分以上
+                current_progress = min(80 + int((elapsed - 120) / 10), 90)
+
+            socketio.emit('progress', {'percent': current_progress, 'message': '動画を生成中...'})
+            time.sleep(1)
+
+            # タイムアウトチェック（5分）
+            if elapsed > 300:
+                process.kill()
+                socketio.emit('error', {'error': '処理がタイムアウトしました（5分以上）'})
+                return
+
+        # プロセス完了
+        stdout, stderr = process.communicate()
+
+        if process.returncode != 0:
+            socketio.emit('error', {'error': f'動画生成に失敗しました: {stderr}'})
+            return
+
+        if not os.path.exists(video_path):
+            socketio.emit('error', {'error': '動画ファイルが生成されませんでした'})
+            return
+
+        # 完了
+        socketio.emit('progress', {'percent': 100, 'message': '完了しました'})
+        socketio.emit('complete', {
+            'success': True,
+            'video_url': f'/static/videos/{video_filename}'
+        })
+
+    except Exception as e:
+        socketio.emit('error', {'error': str(e)})
+    finally:
+        # 一時ファイル削除
+        if os.path.exists(temp_replay_path):
+            os.unlink(temp_replay_path)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -36,42 +104,16 @@ def upload_file():
     file.save(temp_replay.name)
 
     # 出力ファイル名を生成
-    import time
     timestamp = int(time.time())
     video_filename = f'replay_{timestamp}.mp4'
     video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
 
-    try:
-        # minimap_rendererを呼び出す
-        import subprocess
+    # 別スレッドで処理を実行
+    thread = Thread(target=process_video, args=(temp_replay.name, video_path, video_filename))
+    thread.daemon = True
+    thread.start()
 
-        # renderモジュールを実行
-        result = subprocess.run(
-            ['python', '-m', 'render', '--replay', temp_replay.name, '--output', video_path],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5分のタイムアウト
-        )
-
-        if result.returncode != 0:
-            raise Exception(f'動画生成に失敗しました: {result.stderr}')
-
-        if not os.path.exists(video_path):
-            raise Exception('動画ファイルが生成されませんでした')
-
-        return jsonify({
-            'success': True,
-            'video_url': f'/static/videos/{video_filename}'
-        })
-
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': '処理がタイムアウトしました（5分以上）'}), 500
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        # 一時ファイル削除
-        if os.path.exists(temp_replay.name):
-            os.unlink(temp_replay.name)
+    return jsonify({'success': True, 'message': '処理を開始しました'})
 
 def open_browser():
     """ブラウザを自動的に開く"""
