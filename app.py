@@ -35,16 +35,37 @@ def upload_file():
     temp_replay = tempfile.NamedTemporaryFile(delete=False, suffix='.wowsreplay')
     file.save(temp_replay.name)
 
+    # 出力ファイル名を生成
+    import time
+    timestamp = int(time.time())
+    video_filename = f'replay_{timestamp}.mp4'
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+
     try:
-        # TODO: ここでminimap_rendererを呼び出す
-        # 今はダミーレスポンス
-        video_filename = 'output_test.mp4'
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+        # minimap_rendererを呼び出す
+        import subprocess
+
+        # renderモジュールを実行
+        result = subprocess.run(
+            ['python', '-m', 'render', '--replay', temp_replay.name, '--output', video_path],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5分のタイムアウト
+        )
+
+        if result.returncode != 0:
+            raise Exception(f'動画生成に失敗しました: {result.stderr}')
+
+        if not os.path.exists(video_path):
+            raise Exception('動画ファイルが生成されませんでした')
 
         return jsonify({
             'success': True,
             'video_url': f'/static/videos/{video_filename}'
         })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': '処理がタイムアウトしました（5分以上）'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
