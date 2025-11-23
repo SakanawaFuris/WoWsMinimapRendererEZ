@@ -27,15 +27,27 @@ replayFile.addEventListener('change', (e) => {
 
 // Socket.IOイベントハンドラ
 socket.on('progress', (data) => {
+    console.log('Progress:', data);
     updateProgress(data.percent, data.message);
 });
 
 socket.on('complete', (data) => {
+    console.log('Complete:', data);
     showResult(data.video_url);
 });
 
 socket.on('error', (data) => {
+    console.log('Error:', data);
     showError(data.error);
+});
+
+// Socket.IO接続状態のログ
+socket.on('connect', () => {
+    console.log('Socket.IO connected');
+});
+
+socket.on('disconnect', () => {
+    console.log('Socket.IO disconnected');
 });
 
 // フォーム送信時の処理
@@ -61,12 +73,40 @@ uploadForm.addEventListener('submit', async (e) => {
 
         if (data.error) {
             showError(data.error);
+        } else if (data.job_id) {
+            // ポーリング開始
+            pollStatus(data.job_id);
         }
-        // 成功時はSocket.IOイベントで結果を受け取る
     } catch (error) {
         showError('処理中にエラーが発生しました: ' + error.message);
     }
 });
+
+// ステータスをポーリングする関数
+function pollStatus(jobId) {
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch(`/status/${jobId}`);
+            const data = await response.json();
+
+            console.log('Status:', data);
+
+            if (data.status === 'processing') {
+                updateProgress(data.percent, data.message);
+            } else if (data.status === 'complete') {
+                clearInterval(interval);
+                updateProgress(100, '完了しました');
+                setTimeout(() => showResult(data.video_url), 500);
+            } else if (data.status === 'error') {
+                clearInterval(interval);
+                showError(data.error);
+            }
+        } catch (error) {
+            clearInterval(interval);
+            showError('ステータスの取得に失敗しました: ' + error.message);
+        }
+    }, 500); // 500msごとにポーリング
+}
 
 // リセットボタンの処理
 resetBtn.addEventListener('click', resetApp);
