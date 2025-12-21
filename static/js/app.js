@@ -150,3 +150,92 @@ function showError(message) {
     errorSection.classList.remove('hidden');
     errorMessage.textContent = message;
 }
+
+// ===== 更新チェック機能 =====
+const updateBanner = document.getElementById('updateBanner');
+const updateMessage = document.getElementById('updateMessage');
+const updateBtn = document.getElementById('updateBtn');
+const dismissBtn = document.getElementById('dismissBtn');
+const updateProgressSection = document.getElementById('updateProgress');
+const updateProgressFill = document.getElementById('updateProgressFill');
+const updateProgressText = document.getElementById('updateProgressText');
+
+// 起動時に更新をチェック
+document.addEventListener('DOMContentLoaded', () => {
+    checkForUpdates();
+});
+
+async function checkForUpdates() {
+    try {
+        const response = await fetch('/api/check-update');
+        const data = await response.json();
+
+        console.log('Update check:', data);
+
+        if (data.has_update && data.missing_versions && data.missing_versions.length > 0) {
+            const versions = data.missing_versions.map(v => v.replace(/_/g, '.')).join(', ');
+            updateMessage.textContent = `新しいゲームバージョン対応が利用可能です: ${versions}`;
+            updateBanner.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.log('Update check failed:', error);
+    }
+}
+
+// 更新ボタンのクリック処理
+updateBtn.addEventListener('click', async () => {
+    updateBtn.disabled = true;
+    updateBtn.textContent = '更新中...';
+    dismissBtn.classList.add('hidden');
+    updateProgressSection.classList.remove('hidden');
+
+    try {
+        const response = await fetch('/api/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            updateProgressText.textContent = 'エラー: ' + data.error;
+            updateBtn.disabled = false;
+            updateBtn.textContent = '再試行';
+        } else {
+            pollUpdateStatus();
+        }
+    } catch (error) {
+        updateProgressText.textContent = 'エラー: ' + error.message;
+        updateBtn.disabled = false;
+        updateBtn.textContent = '再試行';
+    }
+});
+
+// 更新進捗のポーリング
+function pollUpdateStatus() {
+    const interval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/update-status');
+            const data = await response.json();
+
+            updateProgressFill.style.width = data.progress + '%';
+            updateProgressText.textContent = data.message;
+
+            if (!data.updating && data.progress === 100) {
+                clearInterval(interval);
+                updateBtn.textContent = '完了';
+                updateMessage.textContent = '更新が完了しました。アプリを再起動してください。';
+            } else if (!data.updating && data.message.startsWith('エラー')) {
+                clearInterval(interval);
+                updateBtn.disabled = false;
+                updateBtn.textContent = '再試行';
+            }
+        } catch (error) {
+            console.log('Update status check failed:', error);
+        }
+    }, 500);
+}
+
+// 後でボタン
+dismissBtn.addEventListener('click', () => {
+    updateBanner.classList.add('hidden');
+});

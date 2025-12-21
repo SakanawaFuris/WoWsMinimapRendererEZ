@@ -5,11 +5,10 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-dist/
 *.egg-info/
 
 # 動画ファイル
+videos/*.mp4
 static/videos/*.mp4
 static/videos/*.avi
 
@@ -17,12 +16,34 @@ static/videos/*.avi
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 
 # OS
 Thumbs.db
 .DS_Store
+desktop.ini
+
+# Logs
+*.log
+debug.log
 
 # PyInstaller
-*.spec
 build/
 dist/
+
+# Temporary files
+*.tmp
+*.bak
+nul
+
+# Claude Code
+.claude/
+
+# Release (ZIPファイルはGitHub Releasesで配布)
+release/*.zip
+
+# Other
+.pytest_cache/
+.coverage
+htmlcov/

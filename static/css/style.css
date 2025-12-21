@@ -308,3 +308,87 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 107, 53, 0.7);
 }
+
+/* 更新バナー */
+.update-banner {
+    background: linear-gradient(135deg, #1a4a3a 0%, #0a3a2a 100%);
+    border: 2px solid rgba(76, 175, 80, 0.5);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+}
+
+.update-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+#updateMessage {
+    color: #a5d6a7;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.update-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-update {
+    padding: 10px 25px;
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+    color: #ffffff;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.btn-update:hover {
+    background: linear-gradient(135deg, #66bb6a 0%, #81c784 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.btn-dismiss {
+    padding: 10px 20px;
+    background: transparent;
+    color: #a5d6a7;
+    font-size: 0.95rem;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.btn-dismiss:hover {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.update-progress {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.update-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(10, 20, 30, 0.6);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.update-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50 0%, #66bb6a 100%);
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+#updateProgressText {
+    color: #a5d6a7;
+    font-size: 0.9rem;
+    min-width: 120px;
+}

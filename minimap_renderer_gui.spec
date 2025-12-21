@@ -66,6 +66,8 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    # Python 3.13互換性: メタデータを含める
+    copy_metadata=['werkzeug', 'flask', 'flask-socketio'],
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)

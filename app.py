@@ -7,6 +7,11 @@ import webbrowser
 from threading import Timer, Thread
 import time
 import subprocess
+import json
+import urllib.request
+import urllib.error
+import shutil
+import re
 
 # 実行ファイルの場所を取得（exe化対応）
 if getattr(sys, 'frozen', False):
@@ -15,6 +20,10 @@ if getattr(sys, 'frozen', False):
     BASE_DIR = sys._MEIPASS
     # 実行ファイルと同じ場所（書き込み可能）
     EXE_DIR = os.path.dirname(sys.executable)
+    # 更新用ディレクトリをPythonパスに追加（更新されたバージョンを優先）
+    UPDATE_DIR = os.path.join(EXE_DIR, '_update')
+    if os.path.exists(UPDATE_DIR):
+        sys.path.insert(0, UPDATE_DIR)
 else:
     # 通常のPythonスクリプトとして実行されている場合
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +42,192 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # ジョブの状態を保存する辞書
 job_status = {}
+
+# 更新関連の設定
+GITHUB_API_BASE = "https://api.github.com/repos/WoWs-Builder-Team/minimap_renderer"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/WoWs-Builder-Team/minimap_renderer/master"
+update_status = {'updating': False, 'progress': 0, 'message': ''}
+
+def get_local_versions():
+    """ローカルにインストールされているバージョンのリストを取得"""
+    versions = set()
+    try:
+        if getattr(sys, 'frozen', False):
+            # EXE化されている場合
+            # まず_update内を確認、なければ_internal内
+            update_versions_dir = os.path.join(EXE_DIR, '_update', 'renderer', 'versions')
+            internal_versions_dir = os.path.join(BASE_DIR, 'renderer', 'versions')
+
+            for versions_dir in [update_versions_dir, internal_versions_dir]:
+                if os.path.exists(versions_dir):
+                    for item in os.listdir(versions_dir):
+                        if os.path.isdir(os.path.join(versions_dir, item)) and re.match(r'^\d+_\d+', item):
+                            versions.add(item)
+        else:
+            import renderer
+            versions_dir = os.path.join(os.path.dirname(renderer.__file__), 'versions')
+            if os.path.exists(versions_dir):
+                for item in os.listdir(versions_dir):
+                    if os.path.isdir(os.path.join(versions_dir, item)) and re.match(r'^\d+_\d+', item):
+                        versions.add(item)
+    except Exception as e:
+        print(f"Error getting local versions: {e}")
+    return versions
+
+def get_remote_versions():
+    """GitHubから利用可能なバージョンのリストを取得"""
+    versions = set()
+    try:
+        url = f"{GITHUB_API_BASE}/contents/src/renderer/versions"
+        req = urllib.request.Request(url, headers={'User-Agent': 'WoWsMinimapRenderer'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            for item in data:
+                if item['type'] == 'dir' and re.match(r'^\d+_\d+', item['name']):
+                    versions.add(item['name'])
+    except Exception as e:
+        print(f"Error getting remote versions: {e}")
+    return versions
+
+def download_version_files(version_name, target_dir):
+    """指定バージョンのファイルをダウンロード"""
+    base_path = f"src/renderer/versions/{version_name}"
+
+    # ディレクトリ構造を作成
+    version_dir = os.path.join(target_dir, version_name)
+    layers_dir = os.path.join(version_dir, 'layers')
+    resources_dir = os.path.join(version_dir, 'resources')
+    os.makedirs(layers_dir, exist_ok=True)
+    os.makedirs(resources_dir, exist_ok=True)
+
+    # __init__.py
+    download_file(f"{GITHUB_RAW_BASE}/{base_path}/__init__.py",
+                  os.path.join(version_dir, '__init__.py'))
+
+    # layers内のファイル
+    try:
+        url = f"{GITHUB_API_BASE}/contents/{base_path}/layers"
+        req = urllib.request.Request(url, headers={'User-Agent': 'WoWsMinimapRenderer'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            files = json.loads(response.read().decode())
+            for f in files:
+                if f['name'].endswith('.py'):
+                    download_file(f['download_url'], os.path.join(layers_dir, f['name']))
+    except Exception as e:
+        print(f"Error downloading layers: {e}")
+
+    # resources内のファイル
+    try:
+        url = f"{GITHUB_API_BASE}/contents/{base_path}/resources"
+        req = urllib.request.Request(url, headers={'User-Agent': 'WoWsMinimapRenderer'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            files = json.loads(response.read().decode())
+            for f in files:
+                download_file(f['download_url'], os.path.join(resources_dir, f['name']))
+    except Exception as e:
+        print(f"Error downloading resources: {e}")
+
+def download_file(url, target_path):
+    """ファイルをダウンロードして保存"""
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'WoWsMinimapRenderer'})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            with open(target_path, 'wb') as f:
+                f.write(response.read())
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
+
+def version_sort_key(v):
+    """バージョン文字列をソート用の数値タプルに変換"""
+    try:
+        return tuple(int(n) for n in v.split('_'))
+    except:
+        return (0,)
+
+@app.route('/api/check-update')
+def check_update():
+    """新しいゲームバージョン対応があるかチェック"""
+    try:
+        local_versions = get_local_versions()
+        remote_versions = get_remote_versions()
+
+        missing_versions = remote_versions - local_versions
+        missing_sorted = sorted(missing_versions, key=version_sort_key)
+
+        return jsonify({
+            'has_update': len(missing_versions) > 0,
+            'local_count': len(local_versions),
+            'remote_count': len(remote_versions),
+            'missing_versions': missing_sorted,
+            'latest_local': max(local_versions, key=version_sort_key) if local_versions else None,
+            'latest_remote': max(remote_versions, key=version_sort_key) if remote_versions else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/update', methods=['POST'])
+def apply_update():
+    """新しいバージョンファイルをダウンロードして適用"""
+    global update_status
+
+    if update_status['updating']:
+        return jsonify({'error': '更新処理が既に実行中です'}), 400
+
+    try:
+        data = request.get_json() or {}
+        versions_to_update = data.get('versions', [])
+
+        if not versions_to_update:
+            local_versions = get_local_versions()
+            remote_versions = get_remote_versions()
+            versions_to_update = list(remote_versions - local_versions)
+
+        if not versions_to_update:
+            return jsonify({'message': '更新は必要ありません', 'updated': []})
+
+        # 更新処理をバックグラウンドで実行
+        thread = Thread(target=do_update, args=(versions_to_update,))
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({'message': '更新を開始しました', 'versions': versions_to_update})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def do_update(versions):
+    """実際の更新処理"""
+    global update_status
+    update_status = {'updating': True, 'progress': 0, 'message': '更新を開始...'}
+
+    try:
+        if getattr(sys, 'frozen', False):
+            # EXE化されている場合、EXE_DIR内に更新用ディレクトリを作成
+            versions_dir = os.path.join(EXE_DIR, '_update', 'renderer', 'versions')
+        else:
+            import renderer
+            versions_dir = os.path.join(os.path.dirname(renderer.__file__), 'versions')
+
+        os.makedirs(versions_dir, exist_ok=True)
+
+        total = len(versions)
+        for i, version in enumerate(versions):
+            update_status['message'] = f'{version} をダウンロード中...'
+            update_status['progress'] = int((i / total) * 100)
+            download_version_files(version, versions_dir)
+
+        update_status['progress'] = 100
+        update_status['message'] = '更新完了！アプリを再起動してください。'
+        update_status['updating'] = False
+
+    except Exception as e:
+        update_status['message'] = f'エラー: {str(e)}'
+        update_status['updating'] = False
+
+@app.route('/api/update-status')
+def get_update_status():
+    """更新処理の進捗を取得"""
+    return jsonify(update_status)
 
 @app.route('/')
 def index():
@@ -253,11 +448,33 @@ if __name__ == '__main__':
     # exe化されているかチェック
     is_frozen = getattr(sys, 'frozen', False)
 
-    # Flaskのreloaderによる複数起動を防ぐ
-    # WERKZEUG_RUN_MAIN環境変数は、reloaderの子プロセスでのみ設定される
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
-        # 1秒後にブラウザを開く（親プロセスまたはreloaderなしの場合のみ）
+    if is_frozen:
+        # EXE版の場合：本番用サーバーとして起動（警告を抑制）
+        import logging
+
+        # Werkzeugの警告ログを抑制
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+
+        # ブラウザを開く
         Timer(1, open_browser).start()
 
-    # Flaskアプリを起動（exe化時はdebugをオフ）
-    socketio.run(app, debug=not is_frozen, host='0.0.0.0', port=5000)
+        # 本番用の情報を表示
+        print('=' * 50)
+        print('  WoWs Minimap Renderer v1.0.0')
+        print('=' * 50)
+        print('ブラウザで http://localhost:5000 が開きます')
+        print('終了するには Ctrl+C を押してください')
+        print('=' * 50)
+        print()
+
+        # Socket.IOサーバーで起動（本番モード）
+        socketio.run(app, debug=False, host='0.0.0.0', port=5000, log_output=False)
+    else:
+        # 開発環境の場合：Flaskの開発サーバーを使用
+        # Flaskのreloaderによる複数起動を防ぐ
+        if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+            Timer(1, open_browser).start()
+
+        # Flaskアプリを起動（開発モード）
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

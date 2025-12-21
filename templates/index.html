@@ -9,6 +9,23 @@
 </head>
 <body>
     <div class="container">
+        <!-- 更新通知バナー -->
+        <div id="updateBanner" class="update-banner hidden">
+            <div class="update-content">
+                <span id="updateMessage">新しいゲームバージョン対応が利用可能です</span>
+                <div class="update-buttons">
+                    <button id="updateBtn" class="btn btn-update">更新する</button>
+                    <button id="dismissBtn" class="btn btn-dismiss">後で</button>
+                </div>
+            </div>
+            <div id="updateProgress" class="update-progress hidden">
+                <div class="update-progress-bar">
+                    <div id="updateProgressFill" class="update-progress-fill"></div>
+                </div>
+                <span id="updateProgressText">0%</span>
+            </div>
+        </div>
+
         <div class="header">
             <h1>⚓ WoWs Minimap Renderer</h1>
             <p>リプレイファイルから戦闘を再現</p>
