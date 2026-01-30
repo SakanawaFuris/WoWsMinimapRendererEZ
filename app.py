@@ -75,19 +75,36 @@ def get_local_versions():
     return versions
 
 def get_remote_versions():
-    """GitHubから利用可能なバージョンのリストを取得"""
+    """GitHubから利用可能なバージョンのリストを取得
+
+    Returns:
+        tuple: (versions: set, error: str or None)
+    """
     versions = set()
     try:
         url = f"{GITHUB_API_BASE}/contents/src/renderer/versions"
         req = urllib.request.Request(url, headers={'User-Agent': 'WoWsMinimapRenderer'})
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=15) as response:
             data = json.loads(response.read().decode())
             for item in data:
                 if item['type'] == 'dir' and re.match(r'^\d+_\d+', item['name']):
                     versions.add(item['name'])
+        return versions, None
+    except urllib.error.URLError as e:
+        error_msg = f"ネットワークエラー: {e.reason}"
+        print(f"Error getting remote versions: {error_msg}")
+        return versions, error_msg
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            error_msg = "GitHub APIの制限に達しました。しばらく待ってから再試行してください。"
+        else:
+            error_msg = f"HTTPエラー: {e.code}"
+        print(f"Error getting remote versions: {error_msg}")
+        return versions, error_msg
     except Exception as e:
-        print(f"Error getting remote versions: {e}")
-    return versions
+        error_msg = f"エラー: {str(e)}"
+        print(f"Error getting remote versions: {error_msg}")
+        return versions, error_msg
 
 def download_version_files(version_name, target_dir):
     """指定バージョンのファイルをダウンロード"""
@@ -149,12 +166,27 @@ def check_update():
     """新しいゲームバージョン対応があるかチェック"""
     try:
         local_versions = get_local_versions()
-        remote_versions = get_remote_versions()
+        remote_versions, remote_error = get_remote_versions()
+
+        # リモート取得に失敗した場合
+        if remote_error:
+            return jsonify({
+                'status': 'error',
+                'error': remote_error,
+                'has_update': False,
+                'local_count': len(local_versions),
+                'remote_count': 0,
+                'missing_versions': [],
+                'latest_local': max(local_versions, key=version_sort_key) if local_versions else None,
+                'latest_remote': None
+            })
 
         missing_versions = remote_versions - local_versions
         missing_sorted = sorted(missing_versions, key=version_sort_key)
 
+        # 正常に取得できた場合
         return jsonify({
+            'status': 'success',
             'has_update': len(missing_versions) > 0,
             'local_count': len(local_versions),
             'remote_count': len(remote_versions),
@@ -163,7 +195,11 @@ def check_update():
             'latest_remote': max(remote_versions, key=version_sort_key) if remote_versions else None
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'status': 'error',
+            'error': f'予期せぬエラー: {str(e)}',
+            'has_update': False
+        }), 500
 
 @app.route('/api/update', methods=['POST'])
 def apply_update():
@@ -179,7 +215,9 @@ def apply_update():
 
         if not versions_to_update:
             local_versions = get_local_versions()
-            remote_versions = get_remote_versions()
+            remote_versions, remote_error = get_remote_versions()
+            if remote_error:
+                return jsonify({'error': f'バージョン情報の取得に失敗しました: {remote_error}'}), 500
             versions_to_update = list(remote_versions - local_versions)
 
         if not versions_to_update:
@@ -469,7 +507,7 @@ if __name__ == '__main__':
         print()
 
         # Socket.IOサーバーで起動（本番モード）
-        socketio.run(app, debug=False, host='0.0.0.0', port=5000, log_output=False)
+        socketio.run(app, debug=False, host='0.0.0.0', port=5000, log_output=False, allow_unsafe_werkzeug=True)
     else:
         # 開発環境の場合：Flaskの開発サーバーを使用
         # Flaskのreloaderによる複数起動を防ぐ

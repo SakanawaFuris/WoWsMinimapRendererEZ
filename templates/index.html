@@ -9,7 +9,13 @@
 </head>
 <body>
     <div class="container">
-        <!-- 更新通知バナー -->
+        <!-- 更新ステータス表示エリア（常時表示） -->
+        <div id="updateStatusBar" class="update-status-bar">
+            <span id="updateStatusIcon" class="update-status-icon">⏳</span>
+            <span id="updateStatusText">ゲームバージョン対応を確認中...</span>
+        </div>
+
+        <!-- 更新通知バナー（更新がある場合のみ表示） -->
         <div id="updateBanner" class="update-banner hidden">
             <div class="update-content">
                 <span id="updateMessage">新しいゲームバージョン対応が利用可能です</span>

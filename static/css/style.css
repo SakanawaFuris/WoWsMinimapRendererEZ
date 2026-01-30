@@ -392,3 +392,62 @@ body {
     font-size: 0.9rem;
     min-width: 120px;
 }
+
+/* 更新ステータスバー（常時表示） */
+.update-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    margin-bottom: 15px;
+    background: rgba(30, 40, 50, 0.7);
+    border: 1px solid rgba(100, 120, 140, 0.3);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.update-status-bar.checking {
+    border-color: rgba(255, 193, 7, 0.4);
+    background: rgba(40, 40, 30, 0.7);
+}
+
+.update-status-bar.success {
+    border-color: rgba(76, 175, 80, 0.4);
+    background: rgba(20, 40, 30, 0.7);
+}
+
+.update-status-bar.update-available {
+    border-color: rgba(33, 150, 243, 0.5);
+    background: rgba(20, 35, 50, 0.8);
+}
+
+.update-status-bar.error {
+    border-color: rgba(244, 67, 54, 0.4);
+    background: rgba(50, 30, 30, 0.7);
+}
+
+.update-status-icon {
+    font-size: 1.1rem;
+}
+
+#updateStatusText {
+    color: #b0bec5;
+    flex: 1;
+}
+
+.update-status-bar.checking #updateStatusText {
+    color: #ffd54f;
+}
+
+.update-status-bar.success #updateStatusText {
+    color: #a5d6a7;
+}
+
+.update-status-bar.update-available #updateStatusText {
+    color: #90caf9;
+}
+
+.update-status-bar.error #updateStatusText {
+    color: #ef9a9a;
+}

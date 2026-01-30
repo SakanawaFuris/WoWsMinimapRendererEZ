@@ -160,8 +160,35 @@ const updateProgressSection = document.getElementById('updateProgress');
 const updateProgressFill = document.getElementById('updateProgressFill');
 const updateProgressText = document.getElementById('updateProgressText');
 
+// ステータスバー要素
+const updateStatusBar = document.getElementById('updateStatusBar');
+const updateStatusIcon = document.getElementById('updateStatusIcon');
+const updateStatusText = document.getElementById('updateStatusText');
+
+/**
+ * ステータスバーの状態を更新
+ * @param {'checking' | 'success' | 'update-available' | 'error'} status
+ * @param {string} message
+ */
+function setUpdateStatus(status, message) {
+    // すべての状態クラスを削除
+    updateStatusBar.classList.remove('checking', 'success', 'update-available', 'error');
+    updateStatusBar.classList.add(status);
+
+    // アイコンを設定
+    const icons = {
+        'checking': '⏳',
+        'success': '✅',
+        'update-available': '🔔',
+        'error': '⚠️'
+    };
+    updateStatusIcon.textContent = icons[status] || '❓';
+    updateStatusText.textContent = message;
+}
+
 // 起動時に更新をチェック
 document.addEventListener('DOMContentLoaded', () => {
+    setUpdateStatus('checking', 'ゲームバージョン対応を確認中...');
     checkForUpdates();
 });
 
@@ -172,13 +199,29 @@ async function checkForUpdates() {
 
         console.log('Update check:', data);
 
+        // エラーが返された場合
+        if (data.status === 'error') {
+            setUpdateStatus('error', `確認失敗: ${data.error}`);
+            return;
+        }
+
+        // 更新がある場合
         if (data.has_update && data.missing_versions && data.missing_versions.length > 0) {
             const versions = data.missing_versions.map(v => v.replace(/_/g, '.')).join(', ');
+            const latestLocal = data.latest_local ? data.latest_local.replace(/_/g, '.') : '不明';
+            const latestRemote = data.latest_remote ? data.latest_remote.replace(/_/g, '.') : '不明';
+
+            setUpdateStatus('update-available', `新バージョン対応あり (現在: ${latestLocal} → 最新: ${latestRemote})`);
             updateMessage.textContent = `新しいゲームバージョン対応が利用可能です: ${versions}`;
             updateBanner.classList.remove('hidden');
+        } else {
+            // 更新がない場合（最新状態）
+            const latestLocal = data.latest_local ? data.latest_local.replace(/_/g, '.') : '不明';
+            setUpdateStatus('success', `最新の状態です (バージョン ${latestLocal} 対応済み)`);
         }
     } catch (error) {
         console.log('Update check failed:', error);
+        setUpdateStatus('error', `確認失敗: ネットワークエラー`);
     }
 }
 
