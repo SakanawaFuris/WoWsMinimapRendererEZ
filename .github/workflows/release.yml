@@ -32,9 +32,8 @@ jobs:
       - name: Patch renderer for 15.2.0 compatibility
         run: |
           $dest = (python -c "import renderer, os; print(os.path.dirname(renderer.__file__))").Trim()
-          Copy-Item -Force "renderer_patch\data.py" "$dest\data.py"
-          Copy-Item -Force "renderer_patch\utils.py" "$dest\utils.py"
-          Write-Host "Patched: $dest"
+          Copy-Item -Recurse -Force "renderer_patch\*" "$dest\"
+          Write-Host "Patched renderer at: $dest"
         shell: pwsh
 
       - name: Add extra replay_unpack versions
