@@ -29,6 +29,13 @@ jobs:
       - name: Download game version files
         run: python download_versions.py
 
+      - name: Patch renderer data.py (add buoyancy_state for 15.2.0)
+        run: |
+          $dest = (python -c "import renderer, os; print(os.path.dirname(renderer.__file__))").Trim()
+          Copy-Item -Force "renderer_patch\data.py" "$dest\data.py"
+          Write-Host "Patched: $dest\data.py"
+        shell: pwsh
+
       - name: Add extra replay_unpack versions
         run: |
           $dest = (python -c "import replay_unpack, os; print(os.path.join(os.path.dirname(replay_unpack.__file__), 'clients', 'wows', 'versions', '15_2_0'))").Trim()
