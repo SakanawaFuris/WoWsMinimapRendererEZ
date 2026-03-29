@@ -26,6 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-deps -r requirements.txt
 
+      - name: Write VERSION file
+        run: git rev-parse HEAD | Out-File -Encoding ascii -NoNewline VERSION
+        shell: pwsh
+
       - name: Build with PyInstaller
         run: pyinstaller minimap_renderer_gui.spec
 
@@ -33,6 +37,7 @@ jobs:
         run: |
           $version = "${{ github.ref_name }}"
           $zipName = "WoWsMinimapRenderer-$version-windows.zip"
+          Copy-Item VERSION dist\WoWsMinimapRenderer\VERSION
           Compress-Archive -Path dist\WoWsMinimapRenderer\* -DestinationPath $zipName
           echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
         shell: pwsh

@@ -256,13 +256,28 @@ def _github_api(path):
     with urllib.request.urlopen(req, timeout=10) as res:
         return json.loads(res.read())
 
+def _get_local_hash():
+    """ローカルのコミットハッシュを取得（exe版はVERSIONファイル、開発版はgit）"""
+    if getattr(sys, 'frozen', False):
+        version_file = os.path.join(EXE_DIR, 'VERSION')
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                return f.read().strip()
+        return None
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=BASE_DIR
+        ).decode().strip()
+    except Exception:
+        return None
+
 @app.route('/api/check-update')
 def check_update():
     """GitHubのmainブランチと現在のコミットを比較して更新確認"""
     try:
-        local_hash = subprocess.check_output(
-            ['git', 'rev-parse', 'HEAD'], cwd=BASE_DIR
-        ).decode().strip()
+        local_hash = _get_local_hash()
+        if not local_hash:
+            return jsonify({'status': 'error', 'message': 'バージョン情報が取得できませんでした'})
         data = _github_api(f"repos/{GITHUB_REPO}/commits/main")
         remote_hash = data['sha']
         has_update = local_hash != remote_hash
