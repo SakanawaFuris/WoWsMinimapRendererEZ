@@ -212,7 +212,7 @@ async function checkForUpdates() {
             updateBanner.classList.remove('hidden');
         } else {
             const latest = data.latest_local ? data.latest_local.replace(/_/g, '.') : '?';
-            setUpdateStatus('success', `最新の状態です (${latest})`);
+            setUpdateStatus('success', `最新の状態です (${latest} EZ 対応済み)`);
         }
     } catch (error) {
         console.log('Update check failed:', error);
