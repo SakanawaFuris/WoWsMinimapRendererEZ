@@ -1,0 +1,15 @@
+[Unit]
+Description=WoWs Minimap Renderer GUI (Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=huris_w
+WorkingDirectory=/home/huris_w/share/minimap_renderer_gui
+Environment="MINIMAP_SUBPATH=/apps/minimap-renderer"
+ExecStart=/home/huris_w/share/minimap_renderer_gui/venv_linux/bin/python app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

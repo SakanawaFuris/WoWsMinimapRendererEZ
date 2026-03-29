@@ -1,5 +1,5 @@
-// Socket.IO接続
-const socket = io();
+// Socket.IO接続（サブパス対応: SOCKET_IO_PATHはindex.htmlで定義）
+const socket = io({path: typeof SOCKET_IO_PATH !== 'undefined' ? SOCKET_IO_PATH : '/socket.io'});
 
 // DOM要素の取得
 const uploadForm = document.getElementById('uploadForm');
@@ -64,7 +64,7 @@ uploadForm.addEventListener('submit', async (e) => {
     updateProgress(0, '処理を開始しています...');
 
     try {
-        const response = await fetch('/upload', {
+        const response = await fetch('./upload', {
             method: 'POST',
             body: formData
         });
@@ -86,7 +86,7 @@ uploadForm.addEventListener('submit', async (e) => {
 function pollStatus(jobId) {
     const interval = setInterval(async () => {
         try {
-            const response = await fetch(`/status/${jobId}`);
+            const response = await fetch(`./status/${jobId}`);
             const data = await response.json();
 
             console.log('Status:', data);
@@ -186,15 +186,14 @@ function setUpdateStatus(status, message) {
     updateStatusText.textContent = message;
 }
 
-// 起動時に更新をチェック
+// 起動時にバージョンを表示
 document.addEventListener('DOMContentLoaded', () => {
-    setUpdateStatus('checking', 'ゲームバージョン対応を確認中...');
-    checkForUpdates();
+    setUpdateStatus('success', '最新の状態です (バージョン 15.2.0-EZ 対応済み)');
 });
 
 async function checkForUpdates() {
     try {
-        const response = await fetch('/api/check-update');
+        const response = await fetch('./api/check-update');
         const data = await response.json();
 
         console.log('Update check:', data);
@@ -233,9 +232,10 @@ updateBtn.addEventListener('click', async () => {
     updateProgressSection.classList.remove('hidden');
 
     try {
-        const response = await fetch('/api/update', {
+        const response = await fetch('./api/update', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
         });
         const data = await response.json();
 
@@ -257,7 +257,7 @@ updateBtn.addEventListener('click', async () => {
 function pollUpdateStatus() {
     const interval = setInterval(async () => {
         try {
-            const response = await fetch('/api/update-status');
+            const response = await fetch('./api/update-status');
             const data = await response.json();
 
             updateProgressFill.style.width = data.progress + '%';

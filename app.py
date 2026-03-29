@@ -29,13 +29,35 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     EXE_DIR = BASE_DIR
 
+# リバースプロキシ経由で動作する場合のサブパス設定
+# 例: MINIMAP_SUBPATH=/apps/minimap-renderer
+SUBPATH = os.environ.get('MINIMAP_SUBPATH', '')
+
 app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
             static_folder=os.path.join(BASE_DIR, 'static'))
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 # 動画は実行ファイルと同じ場所に保存（書き込み可能）
 app.config['UPLOAD_FOLDER'] = os.path.join(EXE_DIR, 'videos')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# サブパスが設定されている場合、SCRIPT_NAMEミドルウェアを適用
+# これによりurl_for('static', ...)が正しいパスを生成する
+if SUBPATH:
+    class _PrefixMiddleware:
+        def __init__(self, wsgi_app, prefix):
+            self.wsgi_app = wsgi_app
+            self.prefix = prefix
+        def __call__(self, environ, start_response):
+            environ['SCRIPT_NAME'] = self.prefix
+            path_info = environ.get('PATH_INFO', '')
+            if path_info.startswith(self.prefix):
+                environ['PATH_INFO'] = path_info[len(self.prefix):]
+            return self.wsgi_app(environ, start_response)
+    app.wsgi_app = _PrefixMiddleware(app.wsgi_app, SUBPATH)
+
+# Socket.IOのパス（サブパス対応）
+_socketio_path = f'{SUBPATH}/socket.io' if SUBPATH else '/socket.io'
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', path=_socketio_path)
 
 # 動画保存ディレクトリの確保
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -161,77 +183,73 @@ def version_sort_key(v):
     except:
         return (0,)
 
+def merge_ships_to_default():
+    """全バージョンのships.jsonを統合してデフォルトを最新化する"""
+    try:
+        if getattr(sys, 'frozen', False):
+            renderer_dir = os.path.join(BASE_DIR, 'renderer')
+            version_dirs = [os.path.join(renderer_dir, 'versions')]
+            update_versions_dir = os.path.join(EXE_DIR, '_update', 'renderer', 'versions')
+            if os.path.exists(update_versions_dir):
+                version_dirs.append(update_versions_dir)
+        else:
+            import renderer
+            renderer_dir = os.path.dirname(renderer.__file__)
+            version_dirs = [os.path.join(renderer_dir, 'versions')]
+
+        default_path = os.path.join(renderer_dir, 'resources', 'ships.json')
+
+        merged = {}
+        for versions_dir in version_dirs:
+            if not os.path.exists(versions_dir):
+                continue
+            for v in sorted(os.listdir(versions_dir), key=version_sort_key):
+                ships_path = os.path.join(versions_dir, v, 'resources', 'ships.json')
+                if os.path.exists(ships_path):
+                    with open(ships_path, 'r', encoding='utf-8') as f:
+                        merged.update(json.load(f))
+
+        if merged:
+            with open(default_path, 'w', encoding='utf-8') as f:
+                json.dump(merged, f, ensure_ascii=False)
+            print(f"ships.json merged: {len(merged)} ships")
+
+        # achievements.json も同様にマージ
+        merged_ach = {}
+        for versions_dir in version_dirs:
+            if not os.path.exists(versions_dir):
+                continue
+            for v in sorted(os.listdir(versions_dir), key=version_sort_key):
+                ach_path = os.path.join(versions_dir, v, 'resources', 'achievements.json')
+                if os.path.exists(ach_path):
+                    with open(ach_path, 'r', encoding='utf-8') as f:
+                        merged_ach.update(json.load(f))
+
+        if merged_ach:
+            ach_default = os.path.join(renderer_dir, 'resources', 'achievements.json')
+            with open(ach_default, 'w', encoding='utf-8') as f:
+                json.dump(merged_ach, f, ensure_ascii=False)
+            print(f"achievements.json merged: {len(merged_ach)} entries")
+    except Exception as e:
+        print(f"merge_ships_to_default error: {e}")
+
 @app.route('/api/check-update')
 def check_update():
-    """新しいゲームバージョン対応があるかチェック"""
-    try:
-        local_versions = get_local_versions()
-        remote_versions, remote_error = get_remote_versions()
-
-        # リモート取得に失敗した場合
-        if remote_error:
-            return jsonify({
-                'status': 'error',
-                'error': remote_error,
-                'has_update': False,
-                'local_count': len(local_versions),
-                'remote_count': 0,
-                'missing_versions': [],
-                'latest_local': max(local_versions, key=version_sort_key) if local_versions else None,
-                'latest_remote': None
-            })
-
-        missing_versions = remote_versions - local_versions
-        missing_sorted = sorted(missing_versions, key=version_sort_key)
-
-        # 正常に取得できた場合
-        return jsonify({
-            'status': 'success',
-            'has_update': len(missing_versions) > 0,
-            'local_count': len(local_versions),
-            'remote_count': len(remote_versions),
-            'missing_versions': missing_sorted,
-            'latest_local': max(local_versions, key=version_sort_key) if local_versions else None,
-            'latest_remote': max(remote_versions, key=version_sort_key) if remote_versions else None
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': f'予期せぬエラー: {str(e)}',
-            'has_update': False
-        }), 500
+    """バージョン状態を返す（リモートチェック無効化・EZカスタム版固定）"""
+    return jsonify({
+        'status': 'success',
+        'has_update': False,
+        'local_count': 1,
+        'remote_count': 0,
+        'missing_versions': [],
+        'latest_local': '15.2.0-EZ',
+        'latest_remote': None
+    })
 
 @app.route('/api/update', methods=['POST'])
 def apply_update():
-    """新しいバージョンファイルをダウンロードして適用"""
-    global update_status
-
-    if update_status['updating']:
-        return jsonify({'error': '更新処理が既に実行中です'}), 400
-
-    try:
-        data = request.get_json() or {}
-        versions_to_update = data.get('versions', [])
-
-        if not versions_to_update:
-            local_versions = get_local_versions()
-            remote_versions, remote_error = get_remote_versions()
-            if remote_error:
-                return jsonify({'error': f'バージョン情報の取得に失敗しました: {remote_error}'}), 500
-            versions_to_update = list(remote_versions - local_versions)
-
-        if not versions_to_update:
-            return jsonify({'message': '更新は必要ありません', 'updated': []})
-
-        # 更新処理をバックグラウンドで実行
-        thread = Thread(target=do_update, args=(versions_to_update,))
-        thread.daemon = True
-        thread.start()
-
-        return jsonify({'message': '更新を開始しました', 'versions': versions_to_update})
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """自動更新は無効化済み（EZカスタム版）"""
+    return jsonify({'message': '更新は必要ありません', 'updated': []})
 
 def do_update(versions):
     """実際の更新処理"""
@@ -254,6 +272,7 @@ def do_update(versions):
             update_status['progress'] = int((i / total) * 100)
             download_version_files(version, versions_dir)
 
+        merge_ships_to_default()
         update_status['progress'] = 100
         update_status['message'] = '更新完了！アプリを再起動してください。'
         update_status['updating'] = False
@@ -270,7 +289,7 @@ def get_update_status():
 @app.route('/')
 def index():
     """メイン画面を表示"""
-    return render_template('index.html')
+    return render_template('index.html', socket_io_path=_socketio_path)
 
 def process_video(job_id, temp_replay_path, video_path, video_filename):
     """動画生成処理を別スレッドで実行"""
@@ -409,7 +428,7 @@ def process_video(job_id, temp_replay_path, video_path, video_filename):
             'percent': 100,
             'message': '完了しました',
             'status': 'complete',
-            'video_url': f'/videos/{video_filename}'
+            'video_url': f'{SUBPATH}/videos/{video_filename}'
         }
         logging.info('Job completed successfully')
 
@@ -508,6 +527,23 @@ if __name__ == '__main__':
 
         # Socket.IOサーバーで起動（本番モード）
         socketio.run(app, debug=False, host='0.0.0.0', port=5000, log_output=False, allow_unsafe_werkzeug=True)
+    elif SUBPATH:
+        # サーバーモード（リバースプロキシ経由）：localhost専用・ブラウザ起動なし
+        import logging
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+
+        merge_ships_to_default()
+
+        print('=' * 50)
+        print('  WoWs Minimap Renderer - Server Mode')
+        print('=' * 50)
+        print(f'Subpath: {SUBPATH}')
+        print(f'Listening on: http://127.0.0.1:5001')
+        print('終了するには Ctrl+C を押してください')
+        print('=' * 50)
+
+        socketio.run(app, debug=False, host='127.0.0.1', port=5001, log_output=False, allow_unsafe_werkzeug=True)
     else:
         # 開発環境の場合：Flaskの開発サーバーを使用
         # Flaskのreloaderによる複数起動を防ぐ
