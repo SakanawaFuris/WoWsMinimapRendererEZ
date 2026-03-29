@@ -26,6 +26,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-deps -r requirements.txt
 
+      - name: Download game version files
+        run: python download_versions.py
+
       - name: Write VERSION file
         run: git rev-parse HEAD | Out-File -Encoding ascii -NoNewline VERSION
         shell: pwsh

@@ -206,11 +206,13 @@ async function checkForUpdates() {
 
         // 更新がある場合
         if (data.has_update) {
-            setUpdateStatus('update-available', `更新があります (${data.local_hash} → ${data.remote_hash})`);
-            updateMessage.textContent = `GitHubに新しい更新があります。`;
+            const latest = data.latest_remote ? data.latest_remote.replace(/_/g, '.') : '?';
+            setUpdateStatus('update-available', `新バージョン対応あり (最新: ${latest})`);
+            updateMessage.textContent = `新しいゲームバージョン対応が利用可能です: ${data.missing_versions.map(v => v.replace(/_/g, '.')).join(', ')}`;
             updateBanner.classList.remove('hidden');
         } else {
-            setUpdateStatus('success', `最新の状態です (${data.local_hash})`);
+            const latest = data.latest_local ? data.latest_local.replace(/_/g, '.') : '?';
+            setUpdateStatus('success', `最新の状態です (${latest})`);
         }
     } catch (error) {
         console.log('Update check failed:', error);

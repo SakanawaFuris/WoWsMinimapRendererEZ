@@ -256,57 +256,36 @@ def _github_api(path):
     with urllib.request.urlopen(req, timeout=10) as res:
         return json.loads(res.read())
 
-def _get_local_hash():
-    """ローカルのコミットハッシュを取得（exe版はVERSIONファイル、開発版はgit）"""
-    if getattr(sys, 'frozen', False):
-        version_file = os.path.join(EXE_DIR, 'VERSION')
-        if os.path.exists(version_file):
-            with open(version_file) as f:
-                return f.read().strip()
-        return None
-    try:
-        return subprocess.check_output(
-            ['git', 'rev-parse', 'HEAD'], cwd=BASE_DIR
-        ).decode().strip()
-    except Exception:
-        return None
-
 @app.route('/api/check-update')
 def check_update():
-    """GitHubのmainブランチと現在のコミットを比較して更新確認"""
-    try:
-        local_hash = _get_local_hash()
-        if not local_hash:
-            return jsonify({'status': 'error', 'message': 'バージョン情報が取得できませんでした'})
-        data = _github_api(f"repos/{GITHUB_REPO}/commits/main")
-        remote_hash = data['sha']
-        has_update = local_hash != remote_hash
-        return jsonify({
-            'status': 'success',
-            'has_update': has_update,
-            'local_hash': local_hash[:7],
-            'remote_hash': remote_hash[:7],
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+    """ローカルとリモートのゲームバージョン対応状況を比較して更新確認"""
+    local_versions = get_local_versions()
+    remote_versions, error = get_remote_versions()
+    if error:
+        return jsonify({'status': 'error', 'message': error})
+    missing = sorted(remote_versions - local_versions, key=version_sort_key)
+    latest_local = max(local_versions, key=version_sort_key) if local_versions else None
+    latest_remote = max(remote_versions, key=version_sort_key) if remote_versions else None
+    return jsonify({
+        'status': 'success',
+        'has_update': len(missing) > 0,
+        'missing_versions': missing,
+        'latest_local': latest_local,
+        'latest_remote': latest_remote,
+    })
 
 @app.route('/api/update', methods=['POST'])
 def apply_update():
-    """git pullで更新してプロセスを再起動"""
-    try:
-        result = subprocess.run(
-            ['git', 'pull'], cwd=BASE_DIR,
-            capture_output=True, text=True
-        )
-        if result.returncode != 0:
-            return jsonify({'status': 'error', 'message': result.stderr})
-        def restart():
-            time.sleep(1)
-            os.execv(sys.executable, [sys.executable] + sys.argv)
-        Thread(target=restart, daemon=True).start()
-        return jsonify({'status': 'success', 'message': '更新しました。再起動します...'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+    """不足しているゲームバージョンファイルをダウンロードして更新"""
+    local_versions = get_local_versions()
+    remote_versions, error = get_remote_versions()
+    if error:
+        return jsonify({'status': 'error', 'message': error})
+    missing = sorted(remote_versions - local_versions, key=version_sort_key)
+    if not missing:
+        return jsonify({'status': 'success', 'message': '既に最新の状態です', 'updated': []})
+    Thread(target=do_update, args=(missing,), daemon=True).start()
+    return jsonify({'status': 'success', 'message': '更新を開始しました', 'updated': missing})
 
 def do_update(versions):
     """実際の更新処理"""
