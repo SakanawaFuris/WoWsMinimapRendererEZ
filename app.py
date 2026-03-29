@@ -96,6 +96,23 @@ def get_local_versions():
         print(f"Error getting local versions: {e}")
     return versions
 
+def get_local_replay_unpack_versions():
+    """replay_unpackがパース対応しているバージョンのリストを取得"""
+    versions = set()
+    try:
+        if getattr(sys, 'frozen', False):
+            versions_dir = os.path.join(BASE_DIR, 'replay_unpack', 'clients', 'wows', 'versions')
+        else:
+            import replay_unpack
+            versions_dir = os.path.join(os.path.dirname(replay_unpack.__file__), 'clients', 'wows', 'versions')
+        if os.path.exists(versions_dir):
+            for item in os.listdir(versions_dir):
+                if os.path.isdir(os.path.join(versions_dir, item)) and re.match(r'^\d+_\d+', item):
+                    versions.add(item)
+    except Exception as e:
+        print(f"Error getting replay_unpack versions: {e}")
+    return versions
+
 def get_remote_versions():
     """GitHubから利用可能なバージョンのリストを取得
 
@@ -264,7 +281,9 @@ def check_update():
     if error:
         return jsonify({'status': 'error', 'message': error})
     missing = sorted(remote_versions - local_versions, key=version_sort_key)
-    latest_local = max(local_versions, key=version_sort_key) if local_versions else None
+    replay_unpack_versions = get_local_replay_unpack_versions()
+    all_local = local_versions | replay_unpack_versions
+    latest_local = max(all_local, key=version_sort_key) if all_local else None
     latest_remote = max(remote_versions, key=version_sort_key) if remote_versions else None
     return jsonify({
         'status': 'success',
