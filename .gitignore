@@ -49,3 +49,6 @@ release/*.zip
 htmlcov/
 venv_linux/
 logs/
+
+# GitHub PAT（絶対にコミットしない）
+github_pat.txt

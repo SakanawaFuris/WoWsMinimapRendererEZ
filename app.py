@@ -233,23 +233,65 @@ def merge_ships_to_default():
     except Exception as e:
         print(f"merge_ships_to_default error: {e}")
 
+GITHUB_REPO = "SakanawaFuris/WoWsMinimapRendererEZ"
+_github_pat = None
+
+def _get_github_pat():
+    global _github_pat
+    if _github_pat:
+        return _github_pat
+    pat_file = os.path.join(BASE_DIR, 'github_pat.txt')
+    if os.path.exists(pat_file):
+        with open(pat_file) as f:
+            _github_pat = f.read().strip()
+    return _github_pat
+
+def _github_api(path):
+    url = f"https://api.github.com/{path}"
+    req = urllib.request.Request(url)
+    pat = _get_github_pat()
+    if pat:
+        req.add_header("Authorization", f"Bearer {pat}")
+    req.add_header("Accept", "application/vnd.github+json")
+    with urllib.request.urlopen(req, timeout=10) as res:
+        return json.loads(res.read())
+
 @app.route('/api/check-update')
 def check_update():
-    """バージョン状態を返す（リモートチェック無効化・EZカスタム版固定）"""
-    return jsonify({
-        'status': 'success',
-        'has_update': False,
-        'local_count': 1,
-        'remote_count': 0,
-        'missing_versions': [],
-        'latest_local': '15.2.0-EZ',
-        'latest_remote': None
-    })
+    """GitHubのmainブランチと現在のコミットを比較して更新確認"""
+    try:
+        local_hash = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=BASE_DIR
+        ).decode().strip()
+        data = _github_api(f"repos/{GITHUB_REPO}/commits/main")
+        remote_hash = data['sha']
+        has_update = local_hash != remote_hash
+        return jsonify({
+            'status': 'success',
+            'has_update': has_update,
+            'local_hash': local_hash[:7],
+            'remote_hash': remote_hash[:7],
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/api/update', methods=['POST'])
 def apply_update():
-    """自動更新は無効化済み（EZカスタム版）"""
-    return jsonify({'message': '更新は必要ありません', 'updated': []})
+    """git pullで更新してプロセスを再起動"""
+    try:
+        result = subprocess.run(
+            ['git', 'pull'], cwd=BASE_DIR,
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            return jsonify({'status': 'error', 'message': result.stderr})
+        def restart():
+            time.sleep(1)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        Thread(target=restart, daemon=True).start()
+        return jsonify({'status': 'success', 'message': '更新しました。再起動します...'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 def do_update(versions):
     """実際の更新処理"""

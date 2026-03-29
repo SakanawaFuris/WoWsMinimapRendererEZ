@@ -188,7 +188,7 @@ function setUpdateStatus(status, message) {
 
 // 起動時にバージョンを表示
 document.addEventListener('DOMContentLoaded', () => {
-    setUpdateStatus('success', '最新の状態です (バージョン 15.2.0-EZ 対応済み)');
+    checkForUpdates();
 });
 
 async function checkForUpdates() {
@@ -205,18 +205,12 @@ async function checkForUpdates() {
         }
 
         // 更新がある場合
-        if (data.has_update && data.missing_versions && data.missing_versions.length > 0) {
-            const versions = data.missing_versions.map(v => v.replace(/_/g, '.')).join(', ');
-            const latestLocal = data.latest_local ? data.latest_local.replace(/_/g, '.') : '不明';
-            const latestRemote = data.latest_remote ? data.latest_remote.replace(/_/g, '.') : '不明';
-
-            setUpdateStatus('update-available', `新バージョン対応あり (現在: ${latestLocal} → 最新: ${latestRemote})`);
-            updateMessage.textContent = `新しいゲームバージョン対応が利用可能です: ${versions}`;
+        if (data.has_update) {
+            setUpdateStatus('update-available', `更新があります (${data.local_hash} → ${data.remote_hash})`);
+            updateMessage.textContent = `GitHubに新しい更新があります。`;
             updateBanner.classList.remove('hidden');
         } else {
-            // 更新がない場合（最新状態）
-            const latestLocal = data.latest_local ? data.latest_local.replace(/_/g, '.') : '不明';
-            setUpdateStatus('success', `最新の状態です (バージョン ${latestLocal} 対応済み)`);
+            setUpdateStatus('success', `最新の状態です (${data.local_hash})`);
         }
     } catch (error) {
         console.log('Update check failed:', error);
