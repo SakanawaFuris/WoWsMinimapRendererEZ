@@ -23,6 +23,17 @@ import replay_unpack
 replay_unpack_path = Path(replay_unpack.__file__).parent
 datas.append((str(replay_unpack_path / 'clients/wows/versions'), 'replay_unpack/clients/wows/versions'))
 
+# replay_unpackの各バージョンモジュールをhiddenimportsに追加（importlib動的インポート対応）
+_wows_versions_dir = replay_unpack_path / 'clients' / 'wows' / 'versions'
+_replay_unpack_hidden = []
+for _v in sorted(_wows_versions_dir.iterdir()):
+    if _v.is_dir() and _v.name[0].isdigit():
+        _base = f'replay_unpack.clients.wows.versions.{_v.name}'
+        _replay_unpack_hidden.append(_base)
+        for _f in _v.iterdir():
+            if _f.suffix == '.py' and not _f.name.startswith('_'):
+                _replay_unpack_hidden.append(f'{_base}.{_f.stem}')
+
 a = Analysis(
     ['app.py'],
     pathex=[],
@@ -57,6 +68,7 @@ a = Analysis(
         'replay_unpack.core',
         'replay_unpack.core.network',
         'PIL._tkinter_finder',
+        *_replay_unpack_hidden,
     ],
     hookspath=[],
     hooksconfig={},
