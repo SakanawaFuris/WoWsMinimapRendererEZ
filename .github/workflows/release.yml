@@ -29,6 +29,12 @@ jobs:
       - name: Download game version files
         run: python download_versions.py
 
+      - name: Add extra replay_unpack versions
+        run: |
+          $dest = python -c "import replay_unpack, os; print(os.path.join(os.path.dirname(replay_unpack.__file__), 'clients', 'wows', 'versions'))"
+          Copy-Item -Recurse -Force replay_unpack_extra\* $dest
+        shell: pwsh
+
       - name: Write VERSION file
         run: git rev-parse HEAD | Out-File -Encoding ascii -NoNewline VERSION
         shell: pwsh
