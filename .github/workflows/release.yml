@@ -29,11 +29,12 @@ jobs:
       - name: Download game version files
         run: python download_versions.py
 
-      - name: Patch renderer data.py (add buoyancy_state for 15.2.0)
+      - name: Patch renderer for 15.2.0 compatibility
         run: |
           $dest = (python -c "import renderer, os; print(os.path.dirname(renderer.__file__))").Trim()
           Copy-Item -Force "renderer_patch\data.py" "$dest\data.py"
-          Write-Host "Patched: $dest\data.py"
+          Copy-Item -Force "renderer_patch\utils.py" "$dest\utils.py"
+          Write-Host "Patched: $dest"
         shell: pwsh
 
       - name: Add extra replay_unpack versions
