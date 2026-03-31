@@ -568,6 +568,8 @@ if __name__ == '__main__':
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
 
+        merge_ships_to_default()
+
         # ブラウザを開く
         Timer(1, open_browser).start()
 
