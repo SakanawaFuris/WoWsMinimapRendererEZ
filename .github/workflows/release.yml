@@ -57,6 +57,7 @@ jobs:
           $version = "${{ github.ref_name }}"
           $zipName = "WoWsMinimapRenderer-$version-windows.zip"
           Copy-Item VERSION dist\WoWsMinimapRenderer\VERSION
+          Copy-Item README.md dist\WoWsMinimapRenderer\README.md
           Compress-Archive -Path dist\WoWsMinimapRenderer\* -DestinationPath $zipName
           echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
         shell: pwsh
