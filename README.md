@@ -85,11 +85,14 @@ http://localhost:5000
 
 ## ライセンス
 
-このソフトウェアは個人利用・非商用利用に限り自由に使用できます。
+本ソフトウェアには [WoWs-Builder-Team/minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer)（GNU Affero General Public License v3.0）のコードが含まれています。
+そのため、本ソフトウェア全体も **GNU Affero General Public License v3.0 (AGPL-3.0)** の下で配布されます。
+
+ライセンス全文: https://www.gnu.org/licenses/agpl-3.0.html
 
 ## クレジット
 
-- [minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer): リプレイ解析・動画生成エンジン
+- [minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer) (AGPL-3.0): リプレイ解析・動画生成エンジン
 - [Flask](https://flask.palletsprojects.com/): Webフレームワーク
 - [Socket.IO](https://socket.io/): リアルタイム通信
 
