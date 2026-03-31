@@ -1,4 +1,4 @@
-# WoWs Minimap Renderer
+# WoWs Minimap Renderer EZ
 
 World of Warshipsのリプレイファイルからミニマップ動画を生成するツールです。
 

@@ -1,29 +1,23 @@
-# WoWs Minimap Renderer v1.0.0 (20251221)
+# WoWs Minimap Renderer EZ
 
 World of Warshipsのリプレイファイルからミニマップ動画を生成するツールです。
-
-## ダウンロード
-
-- **ZIP版**: `WoWsMinimapRenderer_v20251221.zip` (約125MB)
-  - 展開してすぐに使えます
-  - インストール不要
 
 ## 必要要件
 
 - Windows 10/11 (64bit)
-- インターネット接続（初回起動時）
-
-## インストール方法
-
-### ZIP版の場合
-
-1. `WoWsMinimapRenderer_v20251221.zip` をダウンロード
-2. 任意のフォルダに展開
-3. `WoWsMinimapRenderer.exe` をダブルクリックして起動
+- インターネット接続（自動更新チェックのため）
 
 ## 使い方
 
-1. アプリケーションを起動すると、自動的にブラウザが開きます
+### インストール
+
+1. [Releases](../../releases) から最新の `WoWsMinimapRenderer-vX.X.X-windows.zip` をダウンロード
+2. 任意のフォルダに展開
+3. `WoWsMinimapRenderer.exe` をダブルクリックで起動
+
+### 動画の生成
+
+1. アプリケーションが起動すると、自動的にブラウザが開きます
 2. 「ファイルを選択」ボタンをクリック
 3. `.wowsreplay` ファイルを選択
 4. 「動画生成を開始」ボタンをクリック
@@ -43,15 +37,26 @@ C:\Games\World_of_Warships\replays\
 - リプレイファイルから動画を自動生成
 - リアルタイム進捗表示
 - Wargaming風のダークテーマUI
-- ブラウザベースの使いやすいインターフェース
+- ブラウザベースのインターフェース
 - 生成した動画のダウンロード機能
-- ゲームバージョン対応ファイルの自動更新機能
+- ゲームバージョン対応状況をステータスバーで常時表示・新バージョン対応があれば通知して手動更新
 
 ## 生成される動画
 
 - **フォーマット**: MP4
-- **保存場所**: `videos` フォルダ内
+- **保存場所**: `videos/` フォルダ（exeと同じ場所）
 - **ファイル名**: `replay_[タイムスタンプ].mp4`
+
+## Linux運用（上級者向け）
+
+`requirements_linux.txt` を使用してPythonから直接実行できます。
+リバースプロキシ経由で運用する場合は `MINIMAP_SUBPATH` 環境変数でサブパスを設定してください。
+
+```bash
+MINIMAP_SUBPATH=/apps/minimap python app.py
+```
+
+systemdサービスファイルのサンプルとして `minimap-renderer.service` を同梱しています。
 
 ## トラブルシューティング
 
@@ -70,54 +75,28 @@ http://localhost:5000
 ### 動画生成に失敗する
 
 - リプレイファイルが破損していないか確認してください
-- 最新バージョンのWorld of Warshipsのリプレイに対応しています
-- 古いバージョンのリプレイは互換性がない場合があります
+- 対応しているのは現行バージョンのリプレイです。古いバージョンのリプレイは互換性がない場合があります
 
 ## 注意事項
 
 - 初回起動時は依存ファイルの読み込みに時間がかかる場合があります
-- リプレイファイルの長さによって、処理時間は1～5分程度かかります
+- リプレイファイルの長さによって、処理時間は数分かかる場合があります
 - アプリケーション実行中はコンソールウィンドウを閉じないでください
-
-## このアプリケーションについて
-
-このツールは、[WoWs-Builder-Team](https://github.com/WoWs-Builder-Team)によって開発された **[minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer)** をベースに、より使いやすくするためにGUIラッパーを追加したものです。
-
-### オリジナル版
-
-- **プロジェクト**: minimap_renderer
-- **開発元**: WoWs-Builder-Team
-- **リポジトリ**: https://github.com/WoWs-Builder-Team/minimap_renderer
-
-リプレイ解析と動画生成のコア機能は、上記のオリジナルプロジェクトによって提供されています。
-
-### このGUI版について
-
-本アプリケーションは、オリジナルのminimap_rendererをより手軽に使用できるよう、Webベースのインターフェースを追加したラッパーアプリケーションです。
-
-## 免責事項
-
-### 使用上の注意
-
-**このソフトウェアの使用は自己責任で行ってください。**
-
-本ツールの使用により生じたいかなる損害についても、開発者は一切の責任を負いません。
-
-### 非公式ツール
-
-このツールは非公式のファンメイドツールです。Wargaming.net及びWorld of Warshipsの開発・運営チームとは一切関係ありません。
-
-**World of Warships** は Wargaming の登録商標です。
 
 ## ライセンス
 
-このGUIアプリケーションは個人利用・非商用利用に限り自由に使用できます。
+本ソフトウェアには [WoWs-Builder-Team/minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer)（GNU Affero General Public License v3.0）のコードが含まれています。
+そのため、本ソフトウェア全体も **GNU Affero General Public License v3.0 (AGPL-3.0)** の下で配布されます。
 
-オリジナルのminimap_rendererのライセンスについては、[GitHubリポジトリ](https://github.com/WoWs-Builder-Team/minimap_renderer)をご確認ください。
+ライセンス全文: https://www.gnu.org/licenses/agpl-3.0.html
 
-## 使用技術・クレジット
+## クレジット
 
-- **minimap_renderer**: リプレイ解析・動画生成エンジン (WoWs-Builder-Team)
-- **Flask**: Webフレームワーク
-- **Socket.IO**: リアルタイム通信
-- その他オープンソースライブラリ
+- [minimap_renderer](https://github.com/WoWs-Builder-Team/minimap_renderer) (AGPL-3.0): リプレイ解析・動画生成エンジン
+- [Flask](https://flask.palletsprojects.com/): Webフレームワーク
+- [Socket.IO](https://socket.io/): リアルタイム通信
+
+---
+
+**World of Warships** は Wargaming の登録商標です。
+このツールは非公式ツールであり、Wargaming との関連はありません。
