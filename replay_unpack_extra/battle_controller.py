@@ -578,9 +578,12 @@ class BattleController(IBattleController):
 
     def _set_buoyancy_state(self, entity: Entity, state: int):
         self._ensure_vehicle(entity)
-        self._dict_vehicle[entity.id] = self._dict_vehicle[entity.id]._replace(
-            buoyancy_state=int(state)
-        )
+        try:
+            self._dict_vehicle[entity.id] = self._dict_vehicle[entity.id]._replace(
+                buoyancy_state=int(state)
+            )
+        except TypeError:
+            pass
 
     def _set_hits(self, entity: Entity, data):
         for item in data:
