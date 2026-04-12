@@ -38,11 +38,19 @@ jobs:
 
       - name: Add extra replay_unpack versions
         run: |
-          $dest = (python -c "import replay_unpack, os; print(os.path.join(os.path.dirname(replay_unpack.__file__), 'clients', 'wows', 'versions', '15_2_0'))").Trim()
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Copy-Item -Recurse -Force "replay_unpack_extra\*" "$dest\"
-          Write-Host "Copied to: $dest"
-          Get-ChildItem $dest | Select-Object Name
+          $base = (python -c "import replay_unpack, os; print(os.path.join(os.path.dirname(replay_unpack.__file__), 'clients', 'wows', 'versions'))").Trim()
+
+          $dest152 = Join-Path $base "15_2_0"
+          New-Item -ItemType Directory -Force -Path $dest152 | Out-Null
+          Copy-Item -Recurse -Force "replay_unpack_extra\*" "$dest152\"
+          Write-Host "Copied 15_2_0 to: $dest152"
+
+          $dest153 = Join-Path $base "15_3_0"
+          New-Item -ItemType Directory -Force -Path $dest153 | Out-Null
+          Copy-Item -Recurse -Force "replay_unpack_extra\*" "$dest153\"
+          Copy-Item -Recurse -Force "replay_unpack_extra_15_3_0\scripts" "$dest153\"
+          Write-Host "Copied 15_3_0 to: $dest153"
+          Get-ChildItem $dest153 | Select-Object Name
         shell: pwsh
 
       - name: Write VERSION file

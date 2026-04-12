@@ -67,7 +67,9 @@ class LayerChatBase(LayerBase):
         )
         base = Image.new("RGBA", (560, 17))
         draw = ImageDraw.Draw(base)
-        player = self._players[message.player_id]
+        player = self._players.get(message.player_id)
+        if player is None:
+            return Image.new("RGBA", (560, 17))
 
         x_pos = 0
 
