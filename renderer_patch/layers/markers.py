@@ -84,7 +84,12 @@ class LayerMarkersBase(LayerBase):
                         logging.warning(f"[markers skip] unknown ability id: {aid} ship={player.ship_params_id}")
                         continue
                     name = f"{id_to_index[aid]}.{id_to_subtype[aid]}"
-                    dist_ship_bw = abilities[name]["distShip"]
+                    ability_entry = abilities.get(name)
+                    if ability_entry is None or "distShip" not in ability_entry:
+                        import logging
+                        logging.warning(f"[markers skip] no distShip for ability: {name} ship={player.ship_params_id}")
+                        continue
+                    dist_ship_bw = ability_entry["distShip"]
                     r = round(self._renderer.get_scaled_r(dist_ship_bw) / 2)
                     w = h = r * 4
 
